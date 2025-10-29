@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>杉田接骨院 予約変更・キャンセル</title>
+  <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+  <style>
+    /* 右端の細いナビ（固定） */
+    .side-nav{position:fixed;right:-5px;top:80%;transform:translateY(-50%) translateX(13px);background:#13ca5e;display:flex;flex-direction:column;align-items:center;padding:4px;border-radius:10px 0 0 10px;z-index:1000;width:35px}
+    .side-nav a{display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;text-decoration:none;font-size:10px;margin:5px 0;padding:5px;border-radius:5px;width:30px;height:30px;text-align:center}
+    .side-nav a span{font-size:24px;position:absolute;left:0;top:13px}
+    @media (max-width:600px){.side-nav{right:2px;width:30px}.side-nav a{width:28px;height:28px}.side-nav a i{font-size:12px}}
+
+    /* ベース */
+    body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue","Hiragino Kaku Gothic ProN","Noto Sans JP","Meiryo",sans-serif;background:#e7e7e7;display:flex;justify-content:center;align-items:flex-start;margin:0;padding:10px}
+    .container{background:#fff;border-radius:12px;box-shadow:0 4px 15px rgba(0,0,0,.08);width:92%;max-width:520px;padding:22px;box-sizing:border-box;margin:0 auto}
+    h1{background:linear-gradient(135deg,#13ca5e,#0fa958);color:#fff;padding:20px;border-radius:0 15px 0 45px;text-align:center;display:block;margin:-20px -15px 20px -15px;font-size:26px;font-weight:700;box-shadow:inset 0 -5px 10px rgba(0,0,0,.05)}
+
+    .label{display:flex;justify-content:space-between;align-items:center;margin:14px 0 6px;background:#13ca5e;color:#fff;border-radius:6px;font-weight:700;font-size:16px;padding:8px 10px}
+    .required{background:#ff2d2d;color:#fff;border-radius:4px;padding:1px 6px;margin-left:8px;font-size:11px}
+
+    input[type="text"],textarea,input[type="datetime-local"]{width:100%;padding:12px;border:1.5px solid #dcdcdc;border-radius:8px;box-sizing:border-box;font-size:16px;background:#fff;transition:border-color .2s,box-shadow .2s}
+    input:focus,textarea:focus{outline:none;border-color:#13ca5e;box-shadow:0 0 0 3px rgba(19,202,94,.15)}
+    textarea{min-height:110px;resize:vertical}
+
+    /* 希望日時：縦並び */
+    .dt-group{margin-top:8px;margin-bottom:10px}
+    .sub-label{font-size:13px;font-weight:700;color:#333;margin:4px 0 6px;display:inline-block;background:#f1fff6;border:1px solid #bfead1;border-radius:6px;padding:4px 8px}
+
+    .note{margin-top:10px;font-size:12px;color:#666;line-height:1.6}
+    .submit{width:100%;padding:14px;border:none;border-radius:10px;background:#dc3545;color:#fff;font-size:18px;font-weight:700;cursor:pointer}
+    .submit:active{transform:scale(.99)}
+  </style>
+</head>
+<body>
+  <!-- 右側ナビ（任意） -->
+  <div class="side-nav" id="sideNav">
+    <a href="#section-submit" aria-label="送信へ"><span>⇩</span><i class="fas fa-paper-plane"></i></a>
+  </div>
+
+  <div class="container">
+    <h1>杉田接骨院 予約変更・キャンセル</h1>
+
+    <!-- ① お名前（必須） -->
+    <div class="label">お名前 <span class="required">必須</span></div>
+    <input type="text" id="name" placeholder="例：山田 太郎" autocomplete="name" />
+
+    <!-- ② 現在の予約日時（自由記載・必須） -->
+    <div class="label">現在の予約日時 <span class="required">必須</span></div>
+    <input type="text" id="current" placeholder="例：2025年10月30日 14:00（60分）" />
+
+    <!-- ③ 変更希望日時（第1〜第3：すべて必須） -->
+    <div class="label">変更希望日時（第1〜第3） <span class="required">必須</span></div>
+    <div class="dt-group">
+      <div class="sub-label">第1希望</div>
+      <input type="datetime-local" id="date1" aria-label="第1希望日時" />
+    </div>
+    <div class="dt-group">
+      <div class="sub-label">第2希望</div>
+      <input type="datetime-local" id="date2" aria-label="第2希望日時" />
+    </div>
+    <div class="dt-group">
+      <div class="sub-label">第3希望</div>
+      <input type="datetime-local" id="date3" aria-label="第3希望日時" />
+    </div>
+
+    <!-- ④ 備考（任意） -->
+    <div class="label">備考</div>
+    <textarea id="note" placeholder="連絡希望時間、注意点などがあればご記入ください"></textarea>
+
+    <p class="note">送信内容はLINEトークに「【杉田接骨院予約変更・キャンセル】」として送られます。</p>
+    <button id="section-submit" class="submit" onclick="submitForm()">送信する</button>
+  </div>
+
+  <!-- LIFF SDK -->
+  <script src="https://static.line-scdn.net/liff/edge/2.1/sdk.js"></script>
+  <script>
+    // 必要に応じて差し替え
+    const LIFF_ID = "2006896977-1oJmD3Xx";
+
+    // 入力保存（name/current/note）
+    function saveInput(id){ const el=document.getElementById(id); if(el) localStorage.setItem(id, el.value); }
+    ["name","current","note"].forEach(id=>{
+      document.addEventListener("input",(e)=>{ if(e.target && e.target.id===id) saveInput(id); });
+    });
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      try { await liff.init({ liffId: LIFF_ID }); }
+      catch (e) { console.error("LIFF初期化に失敗:", e); }
+
+      // 前回値の復元
+      ["name","current","note"].forEach(id=>{
+        const v = localStorage.getItem(id);
+        if(v) document.getElementById(id).value = v;
+      });
+
+      // 過去日時を選べないように min を設定（端末ローカル時刻）
+      const toLocal = (d)=>{ const z=d.getTimezoneOffset(); const l=new Date(d.getTime()-z*60000); return l.toISOString().slice(0,16); };
+      const nowLocal = toLocal(new Date());
+      ["date1","date2","date3"].forEach(id => { const el=document.getElementById(id); if(el) el.min = nowLocal; });
+    });
+
+    function formatJP(datetime){
+      if(!datetime) return "";
+      const d = new Date(datetime);
+      if (isNaN(d)) return "";
+      const y = d.getFullYear();
+      const m = String(d.getMonth()+1).padStart(2,"0");
+      const day = String(d.getDate()).padStart(2,"0");
+      const hh = String(d.getHours()).padStart(2,"0");
+      const mm = String(d.getMinutes()).padStart(2,"0");
+      return `${y}年${m}月${day}日 ${hh}:${mm}`;
+    }
+
+    function submitForm(){
+      const name  = document.getElementById("name").value.trim();
+      const curr  = document.getElementById("current").value.trim();
+      const date1 = document.getElementById("date1").value;
+      const date2 = document.getElementById("date2").value;
+      const date3 = document.getElementById("date3").value;
+      const note  = document.getElementById("note").value.trim();
+
+      // 必須チェック
+      if(!name){ alert("お名前をご入力ください。"); return; }
+      if(!curr){ alert("現在の予約日時をご入力ください。"); return; }
+      if(!date1 || !date2 || !date3){ alert("変更希望日時は第1〜第3までご入力ください。"); return; }
+
+      const message =
+`【杉田接骨院予約変更・キャンセル】
+お名前：${name}
+
+現在の予約日時：${curr}
+
+【変更希望日時】
+・第1希望：${formatJP(date1)}
+・第2希望：${formatJP(date2)}
+・第3希望：${formatJP(date3)}
+
+備考：${note || "（なし）"}`;
+
+      liff.sendMessages([{ type:"text", text: message }])
+        .then(() => {
+          alert("送信が完了しました。ご連絡をお待ちください。");
+          liff.closeWindow();
+        })
+        .catch(err => {
+          console.error("送信失敗:", err);
+          alert("送信に失敗しました。電波状況をご確認のうえ、再度お試しください。");
+        });
+    }
+  </script>
+</body>
+</html>
