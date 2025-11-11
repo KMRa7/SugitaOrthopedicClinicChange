@@ -19,6 +19,7 @@
 
     .label{display:flex;justify-content:space-between;align-items:center;margin:14px 0 6px;background:#13ca5e;color:#fff;border-radius:6px;font-weight:700;font-size:16px;padding:8px 10px}
     .required{background:#ff2d2d;color:#fff;border-radius:4px;padding:1px 6px;margin-left:8px;font-size:11px}
+    .optional{background:#6c757d;color:#fff;border-radius:4px;padding:1px 6px;margin-left:8px;font-size:11px}
 
     input[type="text"],textarea,input[type="datetime-local"]{width:100%;padding:12px;border:1.5px solid #dcdcdc;border-radius:8px;box-sizing:border-box;font-size:16px;background:#fff;transition:border-color .2s,box-shadow .2s}
     input:focus,textarea:focus{outline:none;border-color:#13ca5e;box-shadow:0 0 0 3px rgba(19,202,94,.15)}
@@ -26,7 +27,7 @@
 
     /* 希望日時：縦並び */
     .dt-group{margin-top:8px;margin-bottom:10px}
-    .sub-label{font-size:13px;font-weight:700;color:#333;margin:4px 0 6px;display:inline-block;background:#f1fff6;border:1px solid #bfead1;border-radius:6px;padding:4px 8px}
+    .sub-label{font-size:13px;font-weight:700;color:#333;margin:4px 0 6px;display:inline-flex;align-items:center;gap:8px;background:#f1fff6;border:1px solid #bfead1;border-radius:6px;padding:4px 8px}
 
     .note{margin-top:10px;font-size:12px;color:#666;line-height:1.6}
     .submit{width:100%;padding:14px;border:none;border-radius:10px;background:#dc3545;color:#fff;font-size:18px;font-weight:700;cursor:pointer}
@@ -50,19 +51,19 @@
     <div class="label">現在の予約日時 <span class="required">必須</span></div>
     <input type="text" id="current" placeholder="例：2025年10月30日 14:00（60分）" />
 
-    <!-- ③ 変更希望日時（第1〜第3：すべて必須） -->
-    <div class="label">変更希望日時（第1〜第3） <span class="required">必須</span></div>
+    <!-- ③ 変更希望日時（第1〜第3：第1は必須／第2・第3は任意） -->
+    <div class="label">変更希望日時（第1〜第3） <span class="required">第1は必須・第2/第3は任意</span></div>
     <div class="dt-group">
-      <div class="sub-label">第1希望</div>
+      <div class="sub-label">第1希望 <span class="required">必須</span></div>
       <input type="datetime-local" id="date1" aria-label="第1希望日時" />
     </div>
     <div class="dt-group">
-      <div class="sub-label">第2希望</div>
-      <input type="datetime-local" id="date2" aria-label="第2希望日時" />
+      <div class="sub-label">第2希望 <span class="optional">任意</span></div>
+      <input type="datetime-local" id="date2" aria-label="第2希望日時（任意）" />
     </div>
     <div class="dt-group">
-      <div class="sub-label">第3希望</div>
-      <input type="datetime-local" id="date3" aria-label="第3希望日時" />
+      <div class="sub-label">第3希望 <span class="optional">任意</span></div>
+      <input type="datetime-local" id="date3" aria-label="第3希望日時（任意）" />
     </div>
 
     <!-- ④ 備考（任意） -->
@@ -120,10 +121,10 @@
       const date3 = document.getElementById("date3").value;
       const note  = document.getElementById("note").value.trim();
 
-      // 必須チェック
+      // 必須チェック（第1のみ必須）
       if(!name){ alert("お名前をご入力ください。"); return; }
       if(!curr){ alert("現在の予約日時をご入力ください。"); return; }
-      if(!date1 || !date2 || !date3){ alert("変更希望日時は第1〜第3までご入力ください。"); return; }
+      if(!date1){ alert("変更希望日時は第1希望をご入力ください。第2・第3は任意です。"); return; }
 
       const message =
 `【杉田接骨院予約変更・キャンセル】
@@ -133,8 +134,8 @@
 
 【変更希望日時】
 ・第1希望：${formatJP(date1)}
-・第2希望：${formatJP(date2)}
-・第3希望：${formatJP(date3)}
+・第2希望：${formatJP(date2) || "（未入力）"}
+・第3希望：${formatJP(date3) || "（未入力）"}
 
 備考：${note || "（なし）"}`;
 
