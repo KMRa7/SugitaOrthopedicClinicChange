@@ -21,13 +21,20 @@
     .required{background:#ff2d2d;color:#fff;border-radius:4px;padding:1px 6px;margin-left:8px;font-size:11px}
     .optional{background:#6c757d;color:#fff;border-radius:4px;padding:1px 6px;margin-left:8px;font-size:11px}
 
-    input[type="text"],textarea,input[type="datetime-local"]{width:100%;padding:12px;border:1.5px solid #dcdcdc;border-radius:8px;box-sizing:border-box;font-size:16px;background:#fff;transition:border-color .2s,box-shadow .2s}
-    input:focus,textarea:focus{outline:none;border-color:#13ca5e;box-shadow:0 0 0 3px rgba(19,202,94,.15)}
+    input[type="text"],textarea,input[type="date"],select{
+      width:100%;padding:12px;border:1.5px solid #dcdcdc;border-radius:8px;box-sizing:border-box;font-size:16px;background:#fff;transition:border-color .2s,box-shadow .2s
+    }
+    input:focus,textarea:focus,select:focus{outline:none;border-color:#13ca5e;box-shadow:0 0 0 3px rgba(19,202,94,.15)}
     textarea{min-height:110px;resize:vertical}
 
     /* 希望日時：縦並び */
     .dt-group{margin-top:8px;margin-bottom:10px}
     .sub-label{font-size:13px;font-weight:700;color:#333;margin:4px 0 6px;display:inline-flex;align-items:center;gap:8px;background:#f1fff6;border:1px solid #bfead1;border-radius:6px;padding:4px 8px}
+
+    /* 日付＋時間を横並び */
+    .dt-inline{display:flex;gap:8px}
+    .dt-inline .date-input{flex:2}
+    .dt-inline .time-input{flex:1}
 
     .note{margin-top:10px;font-size:12px;color:#666;line-height:1.6}
     .submit{width:100%;padding:14px;border:none;border-radius:10px;background:#dc3545;color:#fff;font-size:18px;font-weight:700;cursor:pointer}
@@ -53,17 +60,27 @@
 
     <!-- ③ 変更希望日時（第1〜第3：第1は必須／第2・第3は任意） -->
     <div class="label">変更希望日時（第1〜第3） <span class="required">第1は必須・第2/第3は任意</span></div>
+
     <div class="dt-group">
       <div class="sub-label">第1希望 <span class="required">必須</span></div>
-      <input type="datetime-local" id="date1" aria-label="第1希望日時" />
+      <div class="dt-inline">
+        <input type="date" id="date1Date" class="date-input" aria-label="第1希望日付" />
+        <select id="date1Time" class="time-input" aria-label="第1希望時間"></select>
+      </div>
     </div>
     <div class="dt-group">
       <div class="sub-label">第2希望 <span class="optional">任意</span></div>
-      <input type="datetime-local" id="date2" aria-label="第2希望日時（任意）" />
+      <div class="dt-inline">
+        <input type="date" id="date2Date" class="date-input" aria-label="第2希望日付（任意）" />
+        <select id="date2Time" class="time-input" aria-label="第2希望時間（任意）"></select>
+      </div>
     </div>
     <div class="dt-group">
       <div class="sub-label">第3希望 <span class="optional">任意</span></div>
-      <input type="datetime-local" id="date3" aria-label="第3希望日時（任意）" />
+      <div class="dt-inline">
+        <input type="date" id="date3Date" class="date-input" aria-label="第3希望日付（任意）" />
+        <select id="date3Time" class="time-input" aria-label="第3希望時間（任意）"></select>
+      </div>
     </div>
 
     <!-- ④ 備考（任意） -->
@@ -80,10 +97,42 @@
     const LIFF_ID = "2008384607-3G86VGrn";
 
     // 入力保存（name/current/note）
-    function saveInput(id){ const el=document.getElementById(id); if(el) localStorage.setItem(id, el.value); }
+    function saveInput(id){
+      const el=document.getElementById(id);
+      if(el) localStorage.setItem(id, el.value);
+    }
     ["name","current","note"].forEach(id=>{
       document.addEventListener("input",(e)=>{ if(e.target && e.target.id===id) saveInput(id); });
     });
+
+    // 時間プルダウン生成（9:00〜20:30 / 30分刻み）
+    function populateTimeSelect(id){
+      const sel = document.getElementById(id);
+      if(!sel) return;
+      sel.innerHTML = "";
+
+      const optEmpty = document.createElement("option");
+      optEmpty.value = "";
+      optEmpty.textContent = "選択してください";
+      sel.appendChild(optEmpty);
+
+      for(let h = 9; h <= 20; h++){
+        for(let m of [0,30]){
+          const hh = String(h).padStart(2,"0");
+          const mm = String(m).padStart(2,"0");
+          const value = `${hh}:${mm}`;
+          const label = `${h}:${mm}`; // 表示 9:00 形式
+
+          const opt = document.createElement("option");
+          opt.value = value;
+          opt.textContent = label;
+          sel.appendChild(opt);
+
+          // 20:30 になったら終了
+          if(h === 20 && m === 30) break;
+        }
+      }
+    }
 
     document.addEventListener("DOMContentLoaded", async () => {
       try { await liff.init({ liffId: LIFF_ID }); }
@@ -95,36 +144,54 @@
         if(v) document.getElementById(id).value = v;
       });
 
-      // 過去日時を選べないように min を設定（端末ローカル時刻）
-      const toLocal = (d)=>{ const z=d.getTimezoneOffset(); const l=new Date(d.getTime()-z*60000); return l.toISOString().slice(0,16); };
-      const nowLocal = toLocal(new Date());
-      ["date1","date2","date3"].forEach(id => { const el=document.getElementById(id); if(el) el.min = nowLocal; });
+      // 日付は本日以降のみ
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const mm   = String(today.getMonth()+1).padStart(2,"0");
+      const dd   = String(today.getDate()).padStart(2,"0");
+      const todayStr = `${yyyy}-${mm}-${dd}`;
+      ["date1Date","date2Date","date3Date"].forEach(id => {
+        const el=document.getElementById(id);
+        if(el) el.min = todayStr;
+      });
+
+      // 時間プルダウン生成
+      ["date1Time","date2Time","date3Time"].forEach(populateTimeSelect);
     });
 
-    function formatJP(datetime){
-      if(!datetime) return "";
-      const d = new Date(datetime);
-      if (isNaN(d)) return "";
-      const y = d.getFullYear();
-      const m = String(d.getMonth()+1).padStart(2,"0");
-      const day = String(d.getDate()).padStart(2,"0");
-      const hh = String(d.getHours()).padStart(2,"0");
-      const mm = String(d.getMinutes()).padStart(2,"0");
-      return `${y}年${m}月${day}日 ${hh}:${mm}`;
+    // 日付＋時間のフォーマット
+    function formatJP(dateStr, timeStr){
+      if(!dateStr || !timeStr) return "";
+      const parts = dateStr.split("-");
+      if(parts.length !== 3) return "";
+      const y = parts[0];
+      const m = String(Number(parts[1]));
+      const d = String(Number(parts[2]));
+      const [hh, mm] = timeStr.split(":");
+      const hDisp = String(Number(hh)); // 09 → 9
+      return `${y}年${m}月${d}日 ${hDisp}:${mm}`;
     }
 
     function submitForm(){
       const name  = document.getElementById("name").value.trim();
       const curr  = document.getElementById("current").value.trim();
-      const date1 = document.getElementById("date1").value;
-      const date2 = document.getElementById("date2").value;
-      const date3 = document.getElementById("date3").value;
+
+      const date1Date = document.getElementById("date1Date").value;
+      const date1Time = document.getElementById("date1Time").value;
+      const date2Date = document.getElementById("date2Date").value;
+      const date2Time = document.getElementById("date2Time").value;
+      const date3Date = document.getElementById("date3Date").value;
+      const date3Time = document.getElementById("date3Time").value;
+
       const note  = document.getElementById("note").value.trim();
 
-      // 必須チェック（第1のみ必須）
+      // 必須チェック（第1のみ必須：日付＋時間）
       if(!name){ alert("お名前をご入力ください。"); return; }
       if(!curr){ alert("現在の予約日時をご入力ください。"); return; }
-      if(!date1){ alert("変更希望日時は第1希望をご入力ください。第2・第3は任意です。"); return; }
+      if(!date1Date || !date1Time){
+        alert("変更希望日時は第1希望の「日付」と「時間」をご入力／選択ください。第2・第3は任意です。");
+        return;
+      }
 
       const message =
 `【杉田接骨院予約変更・キャンセル】
@@ -133,9 +200,9 @@
 現在の予約日時：${curr}
 
 【変更希望日時】
-・第1希望：${formatJP(date1)}
-・第2希望：${formatJP(date2) || "（未入力）"}
-・第3希望：${formatJP(date3) || "（未入力）"}
+・第1希望：${formatJP(date1Date, date1Time)}
+・第2希望：${formatJP(date2Date, date2Time) || "（未入力）"}
+・第3希望：${formatJP(date3Date, date3Time) || "（未入力）"}
 
 備考：${note || "（なし）"}`;
 
